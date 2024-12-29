@@ -54,7 +54,7 @@ jobs:
       # 可选：缓存 vcpkg（仅适用于 Windows）
       - name: 缓存 vcpkg
         if: runner.os == 'Windows'
-        uses: actions/cache@v3
+        uses: actions/cache@v4.2.0
         with:
           path: C:/vcpkg
           key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/vcpkg.json') }}
@@ -64,7 +64,7 @@ jobs:
       # 可选：缓存 Homebrew（仅适用于 macOS）
       - name: 缓存 Homebrew
         if: runner.os == 'macOS'
-        uses: actions/cache@v3
+        uses: actions/cache@v4.2.0
         with:
           # 根据 macOS 机器的架构调整 Homebrew 路径
           path: ${{ runner.arch == 'x64' && '/usr/local/Homebrew' || '/opt/homebrew' }}
@@ -134,16 +134,22 @@ jobs:
         run: |
           foreach ($dir in $env:BUILD_DIRS.Split(" ")) {
             Write-Host "正在编译 $dir"
-            cmake -B "$(${{ steps.strings.outputs.build-output-dir }})\$dir" `
+            $buildOutputDir = "${{ steps.strings.outputs.build-output-dir }}"
+            # 替换路径中的正斜杠为反斜杠
+            $buildOutputDir = $buildOutputDir -replace '/', '\\'
+            # 使用 Join-Path 构建正确的路径
+            $buildDir = Join-Path $buildOutputDir $dir
+            Write-Host "构建目录: $buildDir"
+            cmake -B "$buildDir" `
                   -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} `
                   -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} `
                   -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} `
                   -S "$(${{ github.workspace }}/$dir)"
-            cmake --build "$(${{ steps.strings.outputs.build-output-dir }})\$dir" --config ${{ matrix.build_type }}
+            cmake --build "$buildDir" --config ${{ matrix.build_type }}
           }
 
       - name: 上传构建产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.5.0
         with:
           name: build-artifacts-${{ matrix.os }}-${{ matrix.c_compiler }}
           path: ${{ steps.strings.outputs.build-output-dir }}/**
