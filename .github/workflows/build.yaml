@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         build_type: [Release]
         c_compiler: [gcc, clang, cl]
         include:
@@ -23,7 +23,7 @@ jobs:
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
-          - os: ubuntu-latest
+          - os: macos-latest
             c_compiler: clang
             cpp_compiler: clang++
         exclude:
@@ -33,24 +33,86 @@ jobs:
             c_compiler: clang
           - os: ubuntu-latest
             c_compiler: cl
+          - os: macos-latest
+            c_compiler: gcc
+          - os: macos-latest
+            c_compiler: cl
 
     env:
-      # 定义可编译的文件夹列表
+      # 定义要编译的目录列表
       BUILD_DIRS: "malody"
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set reusable strings
+      - name: 设置可复用字符串
         id: strings
         shell: bash
         run: |
           echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-      - name: Build Projects
+      # 可选：缓存 vcpkg（仅适用于 Windows）
+      - name: 缓存 vcpkg
+        if: runner.os == 'Windows'
+        uses: actions/cache@v3
+        with:
+          path: C:/vcpkg
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/vcpkg.json') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-
+
+      # 可选：缓存 Homebrew（仅适用于 macOS）
+      - name: 缓存 Homebrew
+        if: runner.os == 'macOS'
+        uses: actions/cache@v3
+        with:
+          path: /usr/local/Homebrew
+          key: ${{ runner.os }}-homebrew-${{ hashFiles('/usr/local/Homebrew/Library/Taps/**') }}
+          restore-keys: |
+            ${{ runner.os }}-homebrew-
+
+      # 在 Ubuntu 上安装 cJSON 依赖项
+      - name: 安装 cJSON 依赖项 (Ubuntu)
+        shell: bash
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcjson-dev
+
+      # 在 Windows 上安装 cJSON 依赖项
+      - name: 安装 cJSON 依赖项 (Windows)
+        shell: pwsh
+        if: runner.os == 'Windows'
+        env:
+          VCPKG_ROOT: C:/vcpkg
+        run: |
+          # 如果未安装 vcpkg，则进行安装
+          if (-Not (Test-Path $env:VCPKG_ROOT)) {
+            Invoke-WebRequest -Uri https://github.com/microsoft/vcpkg/archive/refs/heads/master.zip -OutFile master.zip
+            Expand-Archive master.zip -DestinationPath C:/
+            Remove-Item master.zip
+            Move-Item C:/vcpkg-master $env:VCPKG_ROOT
+            & "$env:VCPKG_ROOT/bootstrap-vcpkg.bat"
+          }
+          
+          # 使用 vcpkg 安装 cJSON
+          & "$env:VCPKG_ROOT/vcpkg.exe" install cjson
+          
+          # 将 vcpkg 集成到 CMake 中
+          & "$env:VCPKG_ROOT/vcpkg.exe" integrate install
+
+      # 在 macOS 上安装 cJSON 依赖项
+      - name: 安装 cJSON 依赖项 (macOS)
+        shell: bash
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install cjson
+
+      - name: 编译项目
         run: |
           for dir in $BUILD_DIRS; do
-            echo "Building $dir"
+            echo "正在编译 $dir"
             cmake -B ${{ steps.strings.outputs.build-output-dir }}/$dir \
                   -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
                   -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
@@ -59,7 +121,7 @@ jobs:
             cmake --build ${{ steps.strings.outputs.build-output-dir }}/$dir --config ${{ matrix.build_type }}
           done
 
-      - name: Upload Build Artifacts
+      - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts-${{ matrix.os }}-${{ matrix.c_compiler }}
