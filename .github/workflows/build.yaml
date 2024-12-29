@@ -66,8 +66,9 @@ jobs:
         if: runner.os == 'macOS'
         uses: actions/cache@v3
         with:
-          path: /usr/local/Homebrew
-          key: ${{ runner.os }}-homebrew-${{ hashFiles('/usr/local/Homebrew/Library/Taps/**') }}
+          # 根据 macOS 机器的架构调整 Homebrew 路径
+          path: ${{ runner.arch == 'x64' && '/usr/local/Homebrew' || '/opt/homebrew' }}
+          key: ${{ runner.os }}-homebrew-${{ hashFiles('/opt/homebrew/Library/Taps/**', '/usr/local/Homebrew/Library/Taps/**') }}
           restore-keys: |
             ${{ runner.os }}-homebrew-
 
@@ -106,10 +107,15 @@ jobs:
         shell: bash
         if: runner.os == 'macOS'
         run: |
+          # 确定 Homebrew 安装路径
+          HOMEBREW_PREFIX=$(brew --prefix)
           brew update
           brew install cjson
 
-      - name: 编译项目
+      # 编译项目（适用于 Linux 和 macOS）
+      - name: 编译项目 (Linux/Mac)
+        shell: bash
+        if: runner.os == 'Linux' || runner.os == 'macOS'
         run: |
           for dir in $BUILD_DIRS; do
             echo "正在编译 $dir"
@@ -120,6 +126,21 @@ jobs:
                   -S ${{ github.workspace }}/$dir
             cmake --build ${{ steps.strings.outputs.build-output-dir }}/$dir --config ${{ matrix.build_type }}
           done
+
+      # 编译项目（适用于 Windows）
+      - name: 编译项目 (Windows)
+        shell: pwsh
+        if: runner.os == 'Windows'
+        run: |
+          foreach ($dir in $env:BUILD_DIRS.Split(" ")) {
+            Write-Host "正在编译 $dir"
+            cmake -B "$(${{ steps.strings.outputs.build-output-dir }})\$dir" `
+                  -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} `
+                  -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} `
+                  -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} `
+                  -S "$(${{ github.workspace }}/$dir)"
+            cmake --build "$(${{ steps.strings.outputs.build-output-dir }})\$dir" --config ${{ matrix.build_type }}
+          }
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
