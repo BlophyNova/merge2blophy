@@ -5,8 +5,10 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+
 jobs:
-  build_windows:
+  # Windows 构建
+  windows:
     runs-on: windows-latest
     steps:
       - name: 带子模块检出
@@ -48,8 +50,90 @@ jobs:
           # 执行构建
           cmake --build "$buildDir" --config Release
 
-      - name: 上传构建产物
+      - name: 上传构建产物 (Windows)
         uses: actions/upload-artifact@v4.5.0
         with:
           name: build-artifacts-windows
-          path: ${{ steps.strings.outputs.build-output-dir }}/**
+          path: ${{ steps.strings.outputs.build-output-dir }}\malody\mtbc.exe
+
+  # Ubuntu 构建
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 带子模块检出
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 设置可复用字符串
+        id: strings
+        shell: bash
+        run: |
+          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+      - name: 编译项目 (Ubuntu)
+        shell: bash
+        run: |
+          echo "正在编译 Ubuntu"
+          buildDir="${{ steps.strings.outputs.build-output-dir }}/malody"
+          sourceDir="${{ github.workspace }}/malody"
+          echo "构建目录: $buildDir"
+          echo "源代码目录: $sourceDir"
+          
+          # 配置 CMake
+          cmake -B "$buildDir" \
+                -DCMAKE_CXX_COMPILER=g++ \
+                -DCMAKE_C_COMPILER=gcc \
+                -DCMAKE_BUILD_TYPE=Release \
+                -S "$sourceDir" \
+                -DCMAKE_C_STANDARD=11
+
+          # 执行构建
+          cmake --build "$buildDir" --config Release
+
+      - name: 上传构建产物 (Ubuntu)
+        uses: actions/upload-artifact@v4.5.0
+        with:
+          name: build-artifacts-ubuntu
+          path: ${{ steps.strings.outputs.build-output-dir }}/malody/mtbc
+
+  # macOS 构建
+  macos:
+    runs-on: macos-latest
+    steps:
+      - name: 带子模块检出
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 设置可复用字符串
+        id: strings
+        shell: bash
+        run: |
+          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+      - name: 编译项目 (macOS)
+        shell: bash
+        run: |
+          echo "正在编译 macOS"
+          buildDir="${{ steps.strings.outputs.build-output-dir }}/malody"
+          sourceDir="${{ github.workspace }}/malody"
+          echo "构建目录: $buildDir"
+          echo "源代码目录: $sourceDir"
+          
+          # 配置 CMake
+          cmake -B "$buildDir" \
+                -DCMAKE_CXX_COMPILER=clang++ \
+                -DCMAKE_C_COMPILER=clang \
+                -DCMAKE_BUILD_TYPE=Release \
+                -S "$sourceDir" \
+                -DCMAKE_C_STANDARD=11
+
+          # 执行构建
+          cmake --build "$buildDir" --config Release
+
+      - name: 上传构建产物 (macOS)
+        uses: actions/upload-artifact@v4.5.0
+        with:
+          name: build-artifacts-macos
+          path: ${{ steps.strings.outputs.build-output-dir }}/malody/mtbc
