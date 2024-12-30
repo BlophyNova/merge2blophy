@@ -2,8 +2,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
+#include <zip.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <errno.h>
 
-#define BUFFER_SIZE 8192 // 定义缓冲区大小
+// 定义缓冲区大小
+#define BUFFER_SIZE 8192
+
+// 调试输出宏
+#ifndef DEBUG
+#define DEBUG_PRINT(fmt, ...) fprintf(stderr, "DEBUG: " fmt, ##__VA_ARGS__)
+#else
+    #define DEBUG_PRINT(fmt, ...) do {} while (0)
+#endif
 
 #define RESET "\033[0m"
 #define RED "\033[1;31m"
@@ -20,13 +34,13 @@ void print_help(const char *program_name) {
     printf("选项:\n");
     printf("  -f <文件路径>       指定输入的 .mc 文件路径\n");
     printf("  -o <输出路径>       指定输出的 Chart.json 文件路径\n");
+    printf("  -z                  指定处理 .mcz 文件（将解压并处理其中的 .mc 文件）\n");
     printf("  -h                  显示帮助信息\n");
-    printf("如果未指定 -f，则从标准输入读取 JSON 数据。\n");
-    printf("如果未指定 -o，则输出到当前目录的 Chart.json 文件。\n");
 }
 
 // 读取文件内容
 char *read_file(const char *filename) {
+    DEBUG_PRINT("读取文件: %s\n", filename);
     FILE *file = fopen(filename, "r");
     if (!file) {
         fprintf(stderr, RED "==> 无法打开文件: %s\n", filename);
@@ -48,31 +62,263 @@ char *read_file(const char *filename) {
     content[length] = '\0';
     fclose(file);
 
+    DEBUG_PRINT("文件读取成功，大小: %ld 字节\n", length);
     return content;
 }
 
-// 从标准输入读取内容
+// 获取绝对路径
+int get_absolute_path(const char *path, char *abs_path) {
+    DEBUG_PRINT("获取绝对路径: %s\n", path);
+    if (realpath(path, abs_path) == NULL) {
+        fprintf(stderr, RED "==> 无法获取绝对路径: %s\n", path);
+        return 0;
+    }
+    return 1;
+}
+
+// 创建目录
+int create_directory_if_not_exists(const char *path) {
+    struct stat st = {0};
+    if (stat(path, &st) == -1) {
+        if (mkdir(path, 0700) != 0) {
+            fprintf(stderr, RED "==> 无法创建目录: %s\n", path);
+            return 0;
+        }
+        printf(GREEN "==> 创建目录: %s\n", path);
+    } else {
+        DEBUG_PRINT("目录已存在: %s\n", path);
+    }
+    return 1;
+}
+
+// 解压 .mcz 文件
+int unzip_mcz(const char *mcz_path, const char *output_dir) {
+    DEBUG_PRINT("解压 .mcz 文件: %s 到目录: %s\n", mcz_path, output_dir);
+    char abs_output_dir[1024];
+    if (!create_directory_if_not_exists(output_dir)) {
+        return 0; // 如果无法创建目录，返回失败
+    }
+
+    // 获取解压目录的绝对路径
+    if (!get_absolute_path(output_dir, abs_output_dir)) {
+        return 0; // 获取绝对路径失败
+    }
+
+    // 解压命令
+    char command[1024];
+    snprintf(command, sizeof(command), "unzip -q %s -d %s", mcz_path, abs_output_dir);
+
+    DEBUG_PRINT("解压命令: %s\n", command);
+    const int result = system(command);
+    if (result != 0) {
+        fprintf(stderr, RED "==> 解压失败: %s\n", mcz_path);
+        return 0;
+    }
+
+    printf(GREEN "==> 解压成功到: %s\n", abs_output_dir);
+    return 1;
+}
+
+// 获取目录下所有 .mc 文件，递归查找
+int get_mc_files(const char *dir, char ***mc_files, int *mc_file_count) {
+    DEBUG_PRINT("获取目录 %s 下所有 .mc 文件\n", dir);
+    DIR *d = opendir(dir);
+    if (!d) {
+        fprintf(stderr, RED "==> 无法打开目录: %s\n", dir);
+        return 0;
+    }
+
+    struct dirent *entry;
+    int count = 0;
+    *mc_files = malloc(sizeof(char *) * 10); // 初始化内存
+
+    while ((entry = readdir(d)) != NULL) {
+        if (entry->d_type == DT_DIR && strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+            // 如果是目录，则递归查找子目录
+            char subdir[BUFFER_SIZE];
+            snprintf(subdir, sizeof(subdir), "%s/%s", dir, entry->d_name);
+            char **subdir_mc_files = NULL;
+            int subdir_mc_file_count = 0;
+            if (get_mc_files(subdir, &subdir_mc_files, &subdir_mc_file_count)) {
+                // 如果子目录下有 .mc 文件，加入到当前目录的文件列表中
+                for (int i = 0; i < subdir_mc_file_count; i++) {
+                    (*mc_files)[count++] = subdir_mc_files[i];
+                }
+                free(subdir_mc_files); // 释放递归得到的内存
+            }
+        } else if (strstr(entry->d_name, ".mc")) {
+            // 如果是 .mc 文件，加入到文件列表中
+            (*mc_files)[count] = strdup(entry->d_name);
+            count++;
+        }
+    }
+
+    closedir(d);
+    *mc_file_count = count;
+    return 1;
+}
+
+// 递归查找包含 .mc 文件的目录
+int get_unique_subdirectory(const char *dir, char *subdir) {
+    DEBUG_PRINT("递归查找目录 %s 下的 .mc 文件\n", dir);
+    DIR *d = opendir(dir);
+    if (!d) {
+        fprintf(stderr, RED "==> 无法打开目录: %s\n", dir);
+        return 0;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(d)) != NULL) {
+        if (entry->d_type == DT_DIR && strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+            // 如果是目录，则递归查找
+            char subdir_path[BUFFER_SIZE];
+            snprintf(subdir_path, sizeof(subdir_path), "%s/%s", dir, entry->d_name);
+            if (get_unique_subdirectory(subdir_path, subdir)) {
+                closedir(d);
+                return 1; // 找到包含 .mc 文件的目录，返回
+            }
+        } else if (strstr(entry->d_name, ".mc")) {
+            // 如果是 .mc 文件，返回当前目录
+            snprintf(subdir, BUFFER_SIZE, "%s", dir);
+            closedir(d);
+            return 1;
+        }
+    }
+
+    closedir(d);
+    return 0; // 如果没有找到 .mc 文件
+}
+
+// 让用户选择 .mc 文件
+char *choose_mc_file(char **mc_files, int mc_file_count) {
+    DEBUG_PRINT("让用户选择 .mc 文件\n");
+    if (mc_file_count == 0) {
+        fprintf(stderr, RED "==> 没有找到 .mc 文件\n");
+        return NULL;
+    }
+
+    if (mc_file_count == 1) {
+        printf(GREEN "  => 只有一个 .mc 文件，自动选择: %s\n", mc_files[0]);
+        return mc_files[0];
+    }
+
+    printf("  => 请选择一个 .mc 文件:\n");
+    for (int i = 0; i < mc_file_count; i++) {
+        printf("    %d: %s\n", i + 1, mc_files[i]);
+    }
+
+    char *endptr;
+    int choice = 0;
+    while (1) {
+        char input[BUFFER_SIZE];
+        printf("  输入文件编号: ");
+        if (fgets(input, sizeof(input), stdin) != NULL) {
+            errno = 0;
+            choice = (int) strtol(input, &endptr, 10);
+            if (endptr == input || *endptr != '\0' || errno != 0 || choice < 1 || choice > mc_file_count) {
+                fprintf(stderr, RED "  无效的选择，请重新输入\n");
+            } else {
+                break;
+            }
+        }
+    }
+
+    return mc_files[choice - 1];
+}
+
+// 删除指定路径下的单个文件
+int remove_file(const char *filename) {
+    if (remove(filename)) {
+        perror("==> Error deleting file");
+        return -1;
+    }
+    return 0;
+}
+
+int delete_directory_contents(const char *dir_path);
+
+int delete_directory(const char *dir_path) {
+    // 删除目录中的所有内容
+    if (delete_directory_contents(dir_path) != 0) {
+        return -1;
+    }
+
+    // 删除空目录
+    if (rmdir(dir_path) == 0) {
+        return 0;
+    }
+    perror("rmdir");
+    return -1;
+}
+
+int delete_directory_contents(const char *dir_path) {
+    struct dirent *entry;
+    DIR *dp = opendir(dir_path);
+    if (dp == NULL) {
+        perror("opendir");
+        return -1;
+    }
+
+    while ((entry = readdir(dp)) != NULL) {
+        char file_path[1024];
+        // 跳过 '.' 和 '..' 目录
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        snprintf(file_path, sizeof(file_path), "%s/%s", dir_path, entry->d_name);
+
+        if (entry->d_type == DT_DIR) {
+            // 如果是子目录，递归删除
+            if (delete_directory(file_path) != 0) {
+                closedir(dp);
+                return -1;
+            }
+        } else {
+            // 删除文件
+            if (remove(file_path) != 0) {
+                perror("remove");
+                closedir(dp);
+                return -1;
+            }
+        }
+    }
+
+    closedir(dp);
+    return 0;
+}
+
 char *read_stdin() {
-    char *content = malloc(BUFFER_SIZE);
-    if (!content) {
+    size_t buffer_size = 1024;
+    char *buffer = malloc(buffer_size);
+    if (!buffer) {
         fprintf(stderr, RED "==> 内存分配失败\n");
         return NULL;
     }
 
-    size_t total_read = 0;
-    size_t read_size;
+    size_t index = 0;
+    int ch;
 
-    while ((read_size = fread(content + total_read, 1, BUFFER_SIZE - total_read, stdin)) > 0) {
-        total_read += read_size;
-        if (total_read >= BUFFER_SIZE) {
-            fprintf(stderr, RED "==> 输入数据超过缓冲区大小\n");
-            free(content);
-            return NULL;
+    // 从标准输入读取字符直到遇到换行符或者缓冲区已满
+    while ((ch = getchar()) != EOF && ch != '\n') {
+        buffer[index++] = (char) ch;
+
+        // 如果缓冲区满了，扩展缓冲区
+        if (index >= buffer_size - 1) {
+            size_t new_buffer_size = buffer_size * 2;
+            char *new_buffer = realloc(buffer, new_buffer_size);
+            if (!new_buffer) {
+                fprintf(stderr, RED "==> 内存扩展失败\n");
+                free(buffer); // 释放原来的内存
+                return NULL;
+            }
+            buffer = new_buffer; // 更新指针
+            buffer_size = new_buffer_size; // 更新缓冲区大小
         }
     }
 
-    content[total_read] = '\0';
-    return content; // 返回分配的内存
+    buffer[index] = '\0'; // 添加字符串结束符
+    return buffer;
 }
 
 // 提取最后的 offset 值并处理
@@ -138,7 +384,7 @@ cJSON *create_bpm_list(const cJSON *time) {
         cJSON_AddItemToArray(bpm_list, bpm_entry);
     }
 
-    printf("  => BPM List解析完成.");
+    printf("  => BPM List解析完成.\n");
 
     return bpm_list;
 }
@@ -175,12 +421,14 @@ void create_chart_json(const double offset, cJSON *bpm_list, const char *output_
     // 清理内存
     free(json_string);
     cJSON_Delete(chart);
+
+    printf(GREEN "==> 临时文件已删除");
 }
 
 int main(const int argc, char *argv[]) {
-    char *input = NULL;
     const char *input_path = NULL;
     const char *output_path = "Chart.json";
+    int is_mcz = 0;
 
     // 解析命令行参数
     for (int i = 1; i < argc; i++) {
@@ -188,48 +436,125 @@ int main(const int argc, char *argv[]) {
             input_path = argv[++i];
         } else if (strcmp(argv[i], "-o") == 0 && i + 1 < argc) {
             output_path = argv[++i];
+        } else if (strcmp(argv[i], "-z") == 0) {
+            is_mcz = 1;
         } else if (strcmp(argv[i], "-h") == 0) {
             print_help(argv[0]);
             return EXIT_SUCCESS;
         } else {
             fprintf(stderr, RED "==> 未知选项: %s\n", argv[i]);
-            print_help(argv[0]);
             return EXIT_FAILURE;
         }
     }
 
-    // 读取输入数据
-    if (input_path) {
-        input = read_file(input_path);
+    // 检查 output_path 是否是目录路径，如果是目录，则附加文件名 "Chart.json"
+    if (output_path) {
+        struct stat st;
+        if (stat(output_path, &st) == 0 && S_ISDIR(st.st_mode)) {
+            // 如果是目录路径，附加文件名 "Chart.json"
+            char temp_path[1024];
+            snprintf(temp_path, sizeof(temp_path), "%s/Chart.json", output_path);
+            output_path = strdup(temp_path); // 更新 output_path
+        }
     } else {
-        printf(GREEN "==> 正在尝试从STDIN读取数据\n");
-        input = read_stdin();
+        output_path = "Chart.json"; // 如果没有指定 -o，则默认使用 "Chart.json"
     }
 
-    if (!input) {
-        fprintf(stderr, RED"==> 未能读取输入数据\n");
+    DEBUG_PRINT("程序启动，输入路径: %s, 输出路径: %s\n", input_path ? input_path : "(未指定)", output_path);
+
+    // 读取输入文件内容
+    char *input_content = NULL;
+    if (input_path) {
+        input_content = read_file(input_path);
+    } else {
+        input_content = read_stdin();
+    }
+
+    if (input_content == NULL) {
         return EXIT_FAILURE;
     }
 
-    // 解析 JSON 数据
-    cJSON *json = cJSON_Parse(input);
-    free(input); // 释放动态分配的内存
+    // 处理 .mcz 文件（如果指定了 -z 参数）
+    if (is_mcz && input_path) {
+        char abs_input_path[1024];
+        if (!get_absolute_path(input_path, abs_input_path)) {
+            return EXIT_FAILURE;
+        }
 
-    if (!json) {
-        fprintf(stderr,RED "==> JSON 解析失败\n");
-        return EXIT_FAILURE;
+        // 生成解压目录路径
+        char unzip_dir[1024];
+        snprintf(unzip_dir, sizeof(unzip_dir), "%s_unzip", abs_input_path);
+
+        // 解压文件
+        if (!unzip_mcz(abs_input_path, unzip_dir)) {
+            return EXIT_FAILURE;
+        }
+
+        // 获取唯一的子目录
+        char subdir[BUFFER_SIZE];
+        if (!get_unique_subdirectory(unzip_dir, subdir)) {
+            fprintf(stderr, RED "==> 找到多个子目录，无法继续\n");
+            return EXIT_FAILURE;
+        }
+
+        // 获取所有 .mc 文件
+        char **mc_files = NULL;
+        int mc_file_count = 0;
+        if (!get_mc_files(subdir, &mc_files, &mc_file_count)) {
+            return EXIT_FAILURE;
+        }
+
+        // 让用户选择一个文件
+        const char *mc_file = choose_mc_file(mc_files, mc_file_count);
+        if (!mc_file) {
+            return EXIT_FAILURE;
+        }
+
+        // 获取 mc 文件的完整路径并处理
+        char mc_file_path[BUFFER_SIZE];
+        snprintf(mc_file_path, sizeof(mc_file_path), "%s/%s", subdir, mc_file);
+
+        printf(GREEN "==> 处理文件: %s\n", mc_file_path);
+
+        const cJSON *json = cJSON_Parse(read_file(mc_file_path));
+        if (!json) {
+            fprintf(stderr,RED "==> JSON 解析失败\n");
+            return EXIT_FAILURE;
+        }
+        // 提取数据并生成 Chart.json
+        const cJSON *notes = cJSON_GetObjectItem(json, "note");
+        const cJSON *time = cJSON_GetObjectItem(json, "time");
+
+        const double offset = extract_last_offset(notes);
+        cJSON *bpm_list = create_bpm_list(time);
+
+        DEBUG_PRINT("OUTPUT_PATH: %s", output_path);
+
+        create_chart_json(offset, bpm_list, output_path);
+
+        // 删除旧文件（如果存在）
+        delete_directory(unzip_dir);
+    } else if (!is_mcz && input_path) {
+        // 解析 JSON 数据
+        cJSON *json = cJSON_Parse(input_content);
+        free(input_content);
+        if (json == NULL) {
+            fprintf(stderr, RED "==> 无法解析 JSON 数据\n");
+            return EXIT_FAILURE;
+        }
+        // 提取数据并生成 Chart.json
+        const cJSON *notes = cJSON_GetObjectItem(json, "note");
+        const cJSON *time = cJSON_GetObjectItem(json, "time");
+
+        const double offset = extract_last_offset(notes);
+        cJSON *bpm_list = create_bpm_list(time);
+
+        create_chart_json(offset, bpm_list, output_path);
+
+        // 清理内存
+        cJSON_Delete(json);
+        return EXIT_SUCCESS;
     }
 
-    // 提取数据并生成 Chart.json
-    const cJSON *notes = cJSON_GetObjectItem(json, "note");
-    const cJSON *time = cJSON_GetObjectItem(json, "time");
-
-    const double offset = extract_last_offset(notes);
-    cJSON *bpm_list = create_bpm_list(time);
-
-    create_chart_json(offset, bpm_list, output_path);
-
-    // 清理内存
-    cJSON_Delete(json);
-    return EXIT_SUCCESS;
+    return 0;
 }

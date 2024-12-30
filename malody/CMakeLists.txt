@@ -17,7 +17,7 @@ add_subdirectory(../thirdparty/cJSON ${CMAKE_BINARY_DIR}/cJSON)
 add_executable(mtbc convert.c)
 
 # 链接 cJSON 库到可执行文件
-target_link_libraries(mtbc PRIVATE cjson)
+target_link_libraries(mtbc PRIVATE cjson zip)
 
 # 指定包含目录
 target_include_directories(mtbc PRIVATE ../thirdparty/cJSON)
