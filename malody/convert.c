@@ -10,14 +10,11 @@
 #include <direct.h>    // 包含 _mkdir
 #include <io.h>        // 包含文件操作函数
 #include <sys/stat.h>  // 包含 _stat 结构体的定义
-typedef struct _stat stat;  // 在Windows中使用 _stat 来兼容 POSIX 的 stat
 #define PATH_SEPARATOR '\\'
 #define MKDIR(path) _mkdir(path)  // 使用 _mkdir 来创建目录
 #define GET_ABS_PATH(path, abs_path) GetFullPathNameA(path, 1024, abs_path, NULL)  // 获取绝对路径
 #define REMOVE_FILE(path) DeleteFileA(path)  // 删除文件
 #define REMOVE_DIR(path) RemoveDirectoryA(path)  // 删除空目录
-
-// 你可以考虑如下处理路径以防 Unicode 字符问题
 #define REMOVE_FILE_UTF16(path) DeleteFileW(path)  // 支持 UTF-16 编码路径
 #define REMOVE_DIR_UTF16(path) RemoveDirectoryW(path)  // 支持 UTF-16 编码路径
 #else
