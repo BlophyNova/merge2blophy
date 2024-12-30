@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: 带子模块检出
-        uses: actions/checkout@v4.5.0
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
