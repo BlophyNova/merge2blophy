@@ -16,27 +16,26 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         build_type: [Release]
         c_compiler: [gcc, clang, cl]
+        cpp_compiler: [gcc, g++, cl, clang++]
         include:
           - os: windows-latest
-            c_compiler: cl
-            cpp_compiler: cl
+            c_compiler: gcc        # Windows使用gcc而非cl
+            cpp_compiler: g++      # Windows使用g++而非cl
           - os: ubuntu-latest
-            c_compiler: gcc
-            cpp_compiler: g++
+            c_compiler: gcc        # 保持Ubuntu使用gcc
+            cpp_compiler: g++      # 保持Ubuntu使用g++
           - os: macos-latest
-            c_compiler: clang
-            cpp_compiler: clang++
+            c_compiler: clang      # 保持MacOS使用clang
+            cpp_compiler: clang++  # 保持MacOS使用clang++
         exclude:
           - os: windows-latest
-            c_compiler: gcc
-          - os: windows-latest
-            c_compiler: clang
+            c_compiler: cl         # Windows 不使用 cl
           - os: ubuntu-latest
-            c_compiler: cl
+            c_compiler: clang      # Ubuntu 不使用 clang
           - os: macos-latest
-            c_compiler: gcc
+            c_compiler: gcc        # MacOS 不使用 gcc
           - os: macos-latest
-            c_compiler: cl
+            c_compiler: cl         # MacOS 不使用 cl
 
     env:
       BUILD_DIRS: "malody"
