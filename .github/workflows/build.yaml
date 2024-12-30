@@ -50,11 +50,31 @@ jobs:
           # 执行构建
           cmake --build "$buildDir" --config Release
 
-      - name: 上传构建产物 (Windows)
-        uses: actions/upload-artifact@v4.5.0
-        with:
+      - name: 动态检测 mtbc.exe 路径并上传构建产物
+        shell: pwsh
+        run: |
+          Write-Host "正在查找 mtbc.exe 文件..."
+          # 查找 build 目录中的 mtbc.exe 文件
+          $mtbcPath = Get-ChildItem -Path "${{ steps.strings.outputs.build-output-dir }}\malody" -Recurse -Filter "mtbc.exe" -ErrorAction SilentlyContinue
+          
+          if ($null -eq $mtbcPath) {
+          Write-Error "未找到 mtbc.exe 文件！"
+          exit 1
+          }
+          
+          Write-Host "找到 mtbc.exe: $($mtbcPath.FullName)"
+          
+          # 上传 mtbc.exe 文件
+          uses: actions/upload-artifact@v4.5.0
+          with:
           name: build-artifacts-windows
-          path: ${{ steps.strings.outputs.build-output-dir }}\malody\mtbc.exe
+          path: $($mtbcPath.FullName)
+
+          - name: 上传构建产物 (Windows)
+            uses: actions/upload-artifact@v4.5.0
+            with:
+              name: build-artifacts-windows
+              path: ${{ steps.strings.outputs.build-output-dir }}\malody\mtbc.exe
 
   # Ubuntu 构建
   ubuntu:
