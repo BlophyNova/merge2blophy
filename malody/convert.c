@@ -12,7 +12,7 @@
 #define BUFFER_SIZE 8192
 
 // 调试输出宏
-#ifndef DEBUG
+#ifdef DEBUG
 #define DEBUG_PRINT(fmt, ...) fprintf(stderr, "DEBUG: " fmt, ##__VA_ARGS__)
 #else
     #define DEBUG_PRINT(fmt, ...) do {} while (0)
