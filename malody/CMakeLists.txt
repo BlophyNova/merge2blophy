@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.30)
 
 # 项目信息
-project(mtbc VERSION 1.0 LANGUAGES C)
+project(mtbc VERSION 1.0 LANGUAGES C CXX)
 
 # 设置 C 标准
 set(CMAKE_C_STANDARD 11)
@@ -23,6 +23,9 @@ endif()
 
 # 添加可执行文件
 add_executable(mtbc convert.c)
+
+# 将 cJSON 的包含目录添加到项目中
+target_include_directories(mtbc PRIVATE ${cJSON_INCLUDE_DIRS})
 
 # 链接 cJSON 库到可执行文件
 target_link_libraries(mtbc PRIVATE cjson)
