@@ -42,7 +42,10 @@ jobs:
       BUILD_DIRS: "malody"
 
     steps:
-      - uses: actions/checkout@v4
+      - name: 带子模块检出
+        uses: actions/checkout@v4.5.0
+        with:
+          submodules: recursive
 
       - name: 设置可复用字符串
         id: strings
