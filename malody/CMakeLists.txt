@@ -7,6 +7,8 @@ project(mtbc VERSION 1.0 LANGUAGES C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
+add_subdirectory(../thirdparty/cJSON)
+
 # 添加可执行文件
 add_executable(mtbc convert.c)
 
