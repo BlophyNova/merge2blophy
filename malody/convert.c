@@ -6,32 +6,24 @@
 #include <errno.h>
 
 #ifdef _WIN32
-    #include <windows.h>
-    #include <direct.h>
-    #include <io.h>
-    #include <sys/stat.h> // Include sys/stat.h on Windows
-    typedef struct _stat STAT_STRUCT; // Alias _stat to STAT_STRUCT
-    #define stat _stat
-    #define PATH_SEPARATOR '\\'
-    #define MKDIR(path) _mkdir(path)
-    #define GET_ABS_PATH(path, abs_path) GetFullPathNameA(path, 1024, abs_path, NULL)
-    #define REMOVE_FILE(path) DeleteFileA(path)
-    #define REMOVE_DIR(path) RemoveDirectoryA(path)
-    // Enable ANSI escape codes in Windows 10 and later
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hOut != INVALID_HANDLE_VALUE) {
-        DWORD dwMode = 0;
-        if (GetConsoleMode(hOut, &dwMode)) {
-            dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-            SetConsoleMode(hOut, dwMode);
-        }
-    }
+#include <windows.h>
+#include <direct.h>    // 包含 _mkdir
+#include <io.h>        // 包含文件操作函数
+#include <sys/stat.h>  // 包含 _stat 结构体的定义
+typedef struct _stat stat;  // 在Windows中使用 _stat 来兼容 POSIX 的 stat
+#define PATH_SEPARATOR '\\'
+#define MKDIR(path) _mkdir(path)  // 使用 _mkdir 来创建目录
+#define GET_ABS_PATH(path, abs_path) GetFullPathNameA(path, 1024, abs_path, NULL)  // 获取绝对路径
+#define REMOVE_FILE(path) DeleteFileA(path)  // 删除文件
+#define REMOVE_DIR(path) RemoveDirectoryA(path)  // 删除空目录
 
+// 你可以考虑如下处理路径以防 Unicode 字符问题
+#define REMOVE_FILE_UTF16(path) DeleteFileW(path)  // 支持 UTF-16 编码路径
+#define REMOVE_DIR_UTF16(path) RemoveDirectoryW(path)  // 支持 UTF-16 编码路径
 #else
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
-typedef struct stat STAT_STRUCT; // Alias stat to STAT_STRUCT
 #define PATH_SEPARATOR '/'
 #define MKDIR(path) mkdir(path, 0700)
 #define GET_ABS_PATH(path, abs_path) realpath(path, abs_path)
@@ -57,6 +49,24 @@ typedef struct stat STAT_STRUCT; // Alias stat to STAT_STRUCT
 #define MAGENTA "\033[1;35m"
 #define CYAN "\033[1;36m"
 #define WHITE "\033[1;37m"
+
+// ANSI 颜色支持在 Windows 上
+#ifdef _WIN32
+#include <windows.h>
+void enable_ansi_colors() {
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut == INVALID_HANDLE_VALUE) return;
+
+    DWORD dwMode = 0;
+    if (!GetConsoleMode(hOut, &dwMode)) return;
+
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hOut, dwMode);
+}
+#else
+void enable_ansi_colors() {
+}
+#endif
 
 // 帮助信息
 void print_help(const char *program_name) {
@@ -115,7 +125,7 @@ int get_absolute_path(const char *path, char *abs_path) {
 
 // 创建目录
 int create_directory_if_not_exists(const char *path) {
-    STAT_STRUCT st = {0};
+    struct stat st = {0};
     if (stat(path, &st) == -1) {
         if (MKDIR(path) != 0) {
             fprintf(stderr, RED "==> 无法创建目录: %s\n" RESET, path);
@@ -160,7 +170,7 @@ int unzip_mcz(const char *mcz_path, const char *output_dir) {
 
         // 构建输出文件路径
         char output_file_path[1024];
-        // Replace '/' with PATH_SEPARATOR if necessary
+        // Replace '/' and '\\' with PATH_SEPARATOR
         char normalized_filename[1024];
         strcpy(normalized_filename, file_stat.m_filename);
         for (char *p = normalized_filename; *p; p++) {
@@ -367,8 +377,6 @@ int get_unique_subdirectory(const char *dir, char *subdir) {
             fprintf(stderr, RED "==> 无法打开目录: %s\n" RESET, dir);
             return 0;
         }
-
-        int found = 0;
 
         do {
             if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
@@ -726,6 +734,8 @@ void create_chart_json(const double offset, cJSON *bpm_list, const char *output_
 }
 
 int main(const int argc, char *argv[]) {
+    enable_ansi_colors(); // Enable ANSI colors on Windows
+
     const char *input_path = NULL;
     const char *output_path = "Chart.json";
     int is_mcz = 0;
