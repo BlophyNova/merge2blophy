@@ -53,7 +53,7 @@ jobs:
       - name: 上传构建产物 (Windows)
         uses: actions/upload-artifact@v4.5.0
         with:
-          name: build-artifacts-windows
+          name: mtbc-windows
           path: ${{ steps.strings.outputs.build-output-dir }}\malody\Release\mtbc.exe
 
   # Ubuntu 构建
@@ -94,7 +94,7 @@ jobs:
       - name: 上传构建产物 (Ubuntu)
         uses: actions/upload-artifact@v4.5.0
         with:
-          name: build-artifacts-ubuntu
+          name: mtbc-linux
           path: ${{ steps.strings.outputs.build-output-dir }}/malody/mtbc
 
   # macOS 构建
@@ -135,5 +135,5 @@ jobs:
       - name: 上传构建产物 (macOS)
         uses: actions/upload-artifact@v4.5.0
         with:
-          name: build-artifacts-macos
+          name: mtbc-macos
           path: ${{ steps.strings.outputs.build-output-dir }}/malody/mtbc
