@@ -7,6 +7,12 @@ project(mtbc VERSION 1.0 LANGUAGES C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
+if(MSVC)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Za")
+else()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
+endif()
+
 add_subdirectory(../thirdparty/cJSON ${CMAKE_BINARY_DIR}/cJSON)
 
 # 添加可执行文件
