@@ -1,52 +1,17 @@
-name: Build
-
-on:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
-
 jobs:
-  build_ubuntu:
-    runs-on: ubuntu-latest  # Ubuntu 环境
-    steps:
-      - name: 带子模块检出
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: 设置可复用字符串
-        id: strings
-        shell: bash
-        run: |
-          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
-
-      # Ubuntu 构建步骤
-      - name: 编译项目 (Ubuntu)
-        shell: bash
-        run: |
-          echo "正在编译 Ubuntu"
-          cmake -B ${{ steps.strings.outputs.build-output-dir }}/malody \
-                -DCMAKE_CXX_COMPILER=g++ \
-                -DCMAKE_C_COMPILER=gcc \
-                -DCMAKE_BUILD_TYPE=Release \
-                -S ${{ github.workspace }}/malody
-          cmake --build ${{ steps.strings.outputs.build-output-dir }}/malody --config Release
-
-      - name: 上传构建产物
-        uses: actions/upload-artifact@v4.5.0
-        with:
-          name: build-artifacts-ubuntu
-          path: ${{ steps.strings.outputs.build-output-dir }}/**
-
-
   build_windows:
-    runs-on: windows-latest  # Windows 环境
+    runs-on: windows-latest
     steps:
       - name: 带子模块检出
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: 修改 cJSON 的 CMakeLists.txt 禁用 /Za
+        shell: pwsh
+        run: |
+          $cjson_cmake = "${{ github.workspace }}\thirdparty\cJSON\CMakeLists.txt"
+          (Get-Content $cjson_cmake) | ForEach-Object { $_ -replace '/Za', '' } | Set-Content $cjson_cmake
 
       - name: 设置可复用字符串
         id: strings
@@ -54,7 +19,6 @@ jobs:
         run: |
           echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-      # Windows 构建步骤
       - name: 编译项目 (Windows)
         shell: pwsh
         run: |
@@ -65,48 +29,20 @@ jobs:
           Write-Host "构建目录: $buildDir"
           $sourceDir = Join-Path $env:GITHUB_WORKSPACE 'malody'
           Write-Host "源代码目录: $sourceDir"
+          
+          # 配置 CMake
           cmake -B "$buildDir" `
-                -DCMAKE_CXX_COMPILER=g++ `
-                -DCMAKE_C_COMPILER=gcc `
+                -DCMAKE_CXX_COMPILER=cl `
+                -DCMAKE_C_COMPILER=cl `
                 -DCMAKE_BUILD_TYPE=Release `
-                -S "$sourceDir"
+                -S "$sourceDir" `
+                -DCMAKE_C_STANDARD=11
+
+          # 执行构建
           cmake --build "$buildDir" --config Release
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4.5.0
         with:
           name: build-artifacts-windows
-          path: ${{ steps.strings.outputs.build-output-dir }}/**
-
-
-  build_macos:
-    runs-on: macos-latest  # macOS 环境
-    steps:
-      - name: 带子模块检出
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: 设置可复用字符串
-        id: strings
-        shell: bash
-        run: |
-          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
-
-      # macOS 构建步骤
-      - name: 编译项目 (macOS)
-        shell: bash
-        run: |
-          echo "正在编译 macOS"
-          cmake -B ${{ steps.strings.outputs.build-output-dir }}/malody \
-                -DCMAKE_CXX_COMPILER=clang++ \
-                -DCMAKE_C_COMPILER=clang \
-                -DCMAKE_BUILD_TYPE=Release \
-                -S ${{ github.workspace }}/malody
-          cmake --build ${{ steps.strings.outputs.build-output-dir }}/malody --config Release
-
-      - name: 上传构建产物
-        uses: actions/upload-artifact@v4.5.0
-        with:
-          name: build-artifacts-macos
           path: ${{ steps.strings.outputs.build-output-dir }}/**
