@@ -7,17 +7,23 @@ project(mtbc VERSION 1.0 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
+if(WIN32)
+    add_definitions(-DWIN32)
+endif()
+
 if(MSVC)
     remove_definitions(/Za)
 endif()
 
 add_subdirectory(../thirdparty/cJSON ${CMAKE_BINARY_DIR}/cJSON)
+add_subdirectory(../thirdparty/miniz ${CMAKE_BINARY_DIR}/miniz)
 
 # 添加可执行文件
 add_executable(mtbc convert.c)
 
 # 链接 cJSON 库到可执行文件
-target_link_libraries(mtbc PRIVATE cjson)
+target_link_libraries(mtbc PRIVATE cjson miniz)
 
 # 指定包含目录
 target_include_directories(mtbc PRIVATE ../thirdparty/cJSON)
+target_include_directories(mtbc PRIVATE ../thirdparty/miniz)
