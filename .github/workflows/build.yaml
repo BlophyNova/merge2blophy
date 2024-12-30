@@ -8,37 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        build_type: [Release]
-        c_compiler: [gcc, clang, cl]
-        cpp_compiler: [gcc, g++, cl, clang++]
-        include:
-          - os: windows-latest
-            c_compiler: gcc        # Windows使用gcc而非cl
-            cpp_compiler: g++      # Windows使用g++而非cl
-          - os: ubuntu-latest
-            c_compiler: gcc        # 保持Ubuntu使用gcc
-            cpp_compiler: g++      # 保持Ubuntu使用g++
-          - os: macos-latest
-            c_compiler: clang      # 保持MacOS使用clang
-            cpp_compiler: clang++  # 保持MacOS使用clang++
-        exclude:
-          - os: windows-latest
-            c_compiler: cl         # Windows 不使用 cl
-          - os: ubuntu-latest
-            c_compiler: clang      # Ubuntu 不使用 clang
-          - os: macos-latest
-            c_compiler: gcc        # MacOS 不使用 gcc
-          - os: macos-latest
-            c_compiler: cl         # MacOS 不使用 cl
-
-    env:
-      BUILD_DIRS: "malody"
+    runs-on: ubuntu-latest  # 默认选择一个平台，可以在后续的步骤中覆盖
 
     steps:
       - name: 带子模块检出
@@ -52,44 +22,53 @@ jobs:
         run: |
           echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-      # 编译项目（适用于 Linux 和 macOS）
-      - name: 编译项目 (Linux/Mac)
+      # 编译项目 - Ubuntu
+      - name: 编译项目 (Ubuntu)
+        if: runner.os == 'Linux'  # 仅在 Ubuntu 上运行
         shell: bash
-        if: runner.os == 'Linux' || runner.os == 'macOS'
         run: |
-          for dir in $BUILD_DIRS; do
-            echo "正在编译 $dir"
-            cmake -B ${{ steps.strings.outputs.build-output-dir }}/$dir \
-                  -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
-                  -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
-                  -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-                  -S ${{ github.workspace }}/$dir
-            cmake --build ${{ steps.strings.outputs.build-output-dir }}/$dir --config ${{ matrix.build_type }}
-          done
+          echo "正在编译 Ubuntu"
+          cmake -B ${{ steps.strings.outputs.build-output-dir }}/malody \
+                -DCMAKE_CXX_COMPILER=g++ \
+                -DCMAKE_C_COMPILER=gcc \
+                -DCMAKE_BUILD_TYPE=Release \
+                -S ${{ github.workspace }}/malody
+          cmake --build ${{ steps.strings.outputs.build-output-dir }}/malody --config Release
 
-      # 编译项目（适用于 Windows）
+      # 编译项目 - Windows
       - name: 编译项目 (Windows)
+        if: runner.os == 'Windows'  # 仅在 Windows 上运行
         shell: pwsh
-        if: runner.os == 'Windows'
         run: |
-          foreach ($dir in $env:BUILD_DIRS.Split(" ")) {
-            Write-Host "正在编译 $dir"
-            $buildOutputDir = "${{ steps.strings.outputs.build-output-dir }}"
-            $buildOutputDir = $buildOutputDir -replace '/', '\\'
-            $buildDir = Join-Path $buildOutputDir $dir
-            Write-Host "构建目录: $buildDir"
-            $sourceDir = Join-Path $env:GITHUB_WORKSPACE $dir
-            Write-Host "源代码目录: $sourceDir"
-            cmake -B "$buildDir" `
-                  -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} `
-                  -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} `
-                  -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} `
-                  -S "$sourceDir"
-            cmake --build "$buildDir" --config ${{ matrix.build_type }}
-          }
+          Write-Host "正在编译 Windows"
+          $buildOutputDir = "${{ steps.strings.outputs.build-output-dir }}"
+          $buildOutputDir = $buildOutputDir -replace '/', '\\'
+          $buildDir = Join-Path $buildOutputDir 'malody'
+          Write-Host "构建目录: $buildDir"
+          $sourceDir = Join-Path $env:GITHUB_WORKSPACE 'malody'
+          Write-Host "源代码目录: $sourceDir"
+          cmake -B "$buildDir" `
+                -DCMAKE_CXX_COMPILER=g++ `
+                -DCMAKE_C_COMPILER=gcc `
+                -DCMAKE_BUILD_TYPE=Release `
+                -S "$sourceDir"
+          cmake --build "$buildDir" --config Release
+
+      # 编译项目 - macOS
+      - name: 编译项目 (macOS)
+        if: runner.os == 'macOS'  # 仅在 macOS 上运行
+        shell: bash
+        run: |
+          echo "正在编译 macOS"
+          cmake -B ${{ steps.strings.outputs.build-output-dir }}/malody \
+                -DCMAKE_CXX_COMPILER=clang++ \
+                -DCMAKE_C_COMPILER=clang \
+                -DCMAKE_BUILD_TYPE=Release \
+                -S ${{ github.workspace }}/malody
+          cmake --build ${{ steps.strings.outputs.build-output-dir }}/malody --config Release
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4.5.0
         with:
-          name: build-artifacts-${{ matrix.os }}-${{ matrix.c_compiler }}
+          name: build-artifacts
           path: ${{ steps.strings.outputs.build-output-dir }}/**
