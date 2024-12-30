@@ -1,4 +1,4 @@
-#include <cjson/cJSON.h> // 需要使用 cJSON 库解析 JSON
+#include "../thirdparty/cJSON/cJSON.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
