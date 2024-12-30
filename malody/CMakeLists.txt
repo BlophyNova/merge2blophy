@@ -1,16 +1,14 @@
 cmake_minimum_required(VERSION 3.30)
 
 # 项目信息
-project(mtbc VERSION 1.0 LANGUAGES C CXX)
+project(mtbc VERSION 1.0 LANGUAGES C)
 
 # 设置 C 标准
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
 if(MSVC)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Za")
-else()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
+    remove_definitions(/Za)
 endif()
 
 add_subdirectory(../thirdparty/cJSON ${CMAKE_BINARY_DIR}/cJSON)
