@@ -7,9 +7,8 @@ on:
     branches: [ "master" ]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest  # 默认选择一个平台，可以在后续的步骤中覆盖
-
+  build_ubuntu:
+    runs-on: ubuntu-latest  # Ubuntu 环境
     steps:
       - name: 带子模块检出
         uses: actions/checkout@v4
@@ -22,9 +21,8 @@ jobs:
         run: |
           echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-      # 编译项目 - Ubuntu
+      # Ubuntu 构建步骤
       - name: 编译项目 (Ubuntu)
-        if: runner.os == 'Linux'  # 仅在 Ubuntu 上运行
         shell: bash
         run: |
           echo "正在编译 Ubuntu"
@@ -35,9 +33,29 @@ jobs:
                 -S ${{ github.workspace }}/malody
           cmake --build ${{ steps.strings.outputs.build-output-dir }}/malody --config Release
 
-      # 编译项目 - Windows
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4.5.0
+        with:
+          name: build-artifacts-ubuntu
+          path: ${{ steps.strings.outputs.build-output-dir }}/**
+
+
+  build_windows:
+    runs-on: windows-latest  # Windows 环境
+    steps:
+      - name: 带子模块检出
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 设置可复用字符串
+        id: strings
+        shell: bash
+        run: |
+          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+      # Windows 构建步骤
       - name: 编译项目 (Windows)
-        if: runner.os == 'Windows'  # 仅在 Windows 上运行
         shell: pwsh
         run: |
           Write-Host "正在编译 Windows"
@@ -54,9 +72,29 @@ jobs:
                 -S "$sourceDir"
           cmake --build "$buildDir" --config Release
 
-      # 编译项目 - macOS
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4.5.0
+        with:
+          name: build-artifacts-windows
+          path: ${{ steps.strings.outputs.build-output-dir }}/**
+
+
+  build_macos:
+    runs-on: macos-latest  # macOS 环境
+    steps:
+      - name: 带子模块检出
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 设置可复用字符串
+        id: strings
+        shell: bash
+        run: |
+          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
+      # macOS 构建步骤
       - name: 编译项目 (macOS)
-        if: runner.os == 'macOS'  # 仅在 macOS 上运行
         shell: bash
         run: |
           echo "正在编译 macOS"
@@ -70,5 +108,5 @@ jobs:
       - name: 上传构建产物
         uses: actions/upload-artifact@v4.5.0
         with:
-          name: build-artifacts
+          name: build-artifacts-macos
           path: ${{ steps.strings.outputs.build-output-dir }}/**
