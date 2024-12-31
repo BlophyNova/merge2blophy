@@ -50,17 +50,11 @@ jobs:
           # 执行构建
           cmake --build "$buildDir" --config Release
 
-      - name: 准备产物
-        run: |
-          mkdir -p artifacts
-          cp ${{ steps.strings.outputs.build-output-dir }}/malody/cJSON/Release/cjson.dll artifacts/
-          cp ${{ steps.strings.outputs.build-output-dir }}/malody/Release/mtbc.exe
-
       - name: 上传构建产物 (Windows)
         uses: actions/upload-artifact@v4.5.0
         with:
           name: mtbc-windows
-          path: ${{ steps.strings.outputs.build-output-dir }}
+          path: ${{ steps.strings.outputs.build-output-dir }}/malody/Release/mtbc.exe
 
   # Ubuntu 构建
   ubuntu:
@@ -97,18 +91,11 @@ jobs:
           # 执行构建
           cmake --build "$buildDir" --config Release
 
-      - name: 准备产物
-        run: |
-          mkdir -p artifacts
-          cp ${{ steps.strings.outputs.build-output-dir }}/malody/cJSON/libcjson.so.1 artifacts/
-          cp ${{ steps.strings.outputs.build-output-dir }}/malody/miniz/libminiz.so.3 artifacts/
-          cp ${{ steps.strings.outputs.build-output-dir }}/malody/mtbc artifacts/
-
       - name: 上传构建产物 (Ubuntu)
         uses: actions/upload-artifact@v4.5.0
         with:
           name: mtbc-linux
-          path: artifacts
+          path: ${{ steps.strings.outputs.build-output-dir }}/malody/mtbc
 
   # macOS 构建
   macos:
@@ -145,15 +132,8 @@ jobs:
           # 执行构建
           cmake --build "$buildDir" --config Release
 
-      - name: 准备产物
-        run: |
-          mkdir -p artifacts
-          cp ${{ steps.strings.outputs.build-output-dir }}/malody/cJSON/libcjson.1.dylib artifacts/
-          cp ${{ steps.strings.outputs.build-output-dir }}/malody/miniz/libminiz.3.dylib artifacts/
-          cp ${{ steps.strings.outputs.build-output-dir }}/malody/mtbc artifacts/
-
       - name: 上传构建产物 (macOS)
         uses: actions/upload-artifact@v4.5.0
         with:
           name: mtbc-macos
-          path: ${{ steps.strings.outputs.build-output-dir }}/malody/
+          path: ${{ steps.strings.outputs.build-output-dir }}/malody/mtbc
