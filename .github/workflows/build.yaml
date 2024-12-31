@@ -50,12 +50,6 @@ jobs:
           # 执行构建
           cmake --build "$buildDir" --config Release
 
-      - name: 准备产物
-        run: |
-          mkdir -p artifacts
-          cp ${{ steps.strings.outputs.build-output-dir }}/malody/cJSON/cjson.dll artifacts/
-          cp ${{ steps.strings.outputs.build-output-dir }}/malody/miniz/miniz.dll artifacts/
-
       - name: 上传构建产物 (Windows)
         uses: actions/upload-artifact@v4.5.0
         with:
