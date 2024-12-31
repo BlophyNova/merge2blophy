@@ -30,6 +30,11 @@ include_directories(${CMAKE_BINARY_DIR}/cJSON)
 
 target_link_libraries(mtbc PRIVATE cjson miniz)
 
+# 设置输出目录
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+# 设置 RPATH
+set_target_properties(mtbc PROPERTIES INSTALL_RPATH "$ORIGIN")
 set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH "$ORIGIN") # 可执行文件路径
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
