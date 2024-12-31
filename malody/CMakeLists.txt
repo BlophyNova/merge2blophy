@@ -28,5 +28,8 @@ target_include_directories(mtbc PRIVATE ../thirdparty/miniz)
 include_directories(${CMAKE_BINARY_DIR}/miniz)
 include_directories(${CMAKE_BINARY_DIR}/cJSON)
 
-# 确保静态链接 cJSON 和 miniz 库
 target_link_libraries(mtbc PRIVATE cjson miniz)
+
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+set(CMAKE_INSTALL_RPATH "$ORIGIN") # 可执行文件路径
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)

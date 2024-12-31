@@ -50,6 +50,12 @@ jobs:
           # 执行构建
           cmake --build "$buildDir" --config Release
 
+      - name: 准备产物
+        run: |
+          mkdir -p artifacts
+          cp ${{ steps.strings.outputs.build-output-dir }}/malody/cJSON/cjson.dll artifacts/
+          cp ${{ steps.strings.outputs.build-output-dir }}/malody/miniz/miniz.dll artifacts/
+
       - name: 上传构建产物 (Windows)
         uses: actions/upload-artifact@v4.5.0
         with:
@@ -91,11 +97,17 @@ jobs:
           # 执行构建
           cmake --build "$buildDir" --config Release
 
+      - name: 准备产物
+        run: |
+          mkdir -p artifacts
+          cp ${{ steps.strings.outputs.build-output-dir }}/malody/cJSON/libcjson.so.1 artifacts/
+          cp ${{ steps.strings.outputs.build-output-dir }}/malody/miniz/libminiz.so.3 artifacts/
+
       - name: 上传构建产物 (Ubuntu)
         uses: actions/upload-artifact@v4.5.0
         with:
           name: mtbc-linux
-          path: ${{ steps.strings.outputs.build-output-dir }}/malody/
+          path: artifacts
 
   # macOS 构建
   macos:
@@ -131,6 +143,12 @@ jobs:
 
           # 执行构建
           cmake --build "$buildDir" --config Release
+
+      - name: 准备产物
+        run: |
+          mkdir -p artifacts
+          cp ${{ steps.strings.outputs.build-output-dir }}/malody/cJSON/libcjson.1.dylib artifacts/
+          cp ${{ steps.strings.outputs.build-output-dir }}/malody/miniz/libminiz.3.dylib artifacts/
 
       - name: 上传构建产物 (macOS)
         uses: actions/upload-artifact@v4.5.0
