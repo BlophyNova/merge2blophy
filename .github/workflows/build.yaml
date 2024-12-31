@@ -60,7 +60,7 @@ jobs:
         uses: actions/upload-artifact@v4.5.0
         with:
           name: mtbc-windows
-          path: ${{ steps.strings.outputs.build-output-dir }}\malody\Release\
+          path: ${{ steps.strings.outputs.build-output-dir }}
 
   # Ubuntu 构建
   ubuntu:
