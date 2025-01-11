@@ -11,12 +11,9 @@ if(WIN32)
     add_definitions(-DWIN32)
 endif()
 
-if(MSVC)
-    remove_definitions(/Za)
-endif()
 set(BUILD_SHARED_LIBS OFF)
 set(CJSON_OVERRIDE_BUILD_SHARED_LIBS OFF)
-option(BUILD_HEADER_ONLY "Build a header-only version" OFF)
+set(BUILD_HEADER_ONLY OFF)
 
 
 # 添加子模块

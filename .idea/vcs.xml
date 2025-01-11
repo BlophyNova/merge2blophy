@@ -2,7 +2,6 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/miniz" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/thirdparty/cJSON" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/thirdparty/miniz" vcs="Git" />
   </component>

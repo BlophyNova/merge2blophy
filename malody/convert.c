@@ -3,12 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 
 #ifdef _WIN32
 #include <windows.h>
 #include <direct.h>    // 包含 _mkdir
-#include <io.h>        // 包含文件操作函数
 #include <sys/stat.h>  // 包含 _stat 结构体的定义
 #define PATH_SEPARATOR '\\'
 #define MKDIR(path) _mkdir(path)  // 使用 _mkdir 来创建目录
@@ -49,7 +47,6 @@
 
 // ANSI 颜色支持在 Windows 上
 #ifdef _WIN32
-#include <windows.h>
 void enable_ansi_colors() {
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hOut == INVALID_HANDLE_VALUE) return;
@@ -219,56 +216,38 @@ int unzip_mcz(const char *mcz_path, const char *output_dir) {
 int get_mc_files(const char *dir, char ***mc_files, int *mc_file_count) {
     DEBUG_PRINT("获取目录 %s 下所有 .mc 文件\n", dir);
 #ifdef _WIN32
-        WIN32_FIND_DATAA find_data;
-        HANDLE hFind = INVALID_HANDLE_VALUE;
-        char search_path[1024];
-        snprintf(search_path, sizeof(search_path), "%s%c*", dir, PATH_SEPARATOR);
+    WIN32_FIND_DATAA find_data;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+    char search_path[1024];
+    snprintf(search_path, sizeof(search_path), "%s%c*", dir, PATH_SEPARATOR);
 
-        hFind = FindFirstFileA(search_path, &find_data);
-        if (hFind == INVALID_HANDLE_VALUE) {
-            fprintf(stderr, RED "==> 无法打开目录: %s\n" RESET, dir);
-            return 0;
-        }
+    hFind = FindFirstFileA(search_path, &find_data);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        fprintf(stderr, RED "==> 无法打开目录: %s\n" RESET, dir);
+        return 0;
+    }
 
-        int capacity = 10;
-        *mc_files = malloc(sizeof(char *) * capacity);
-        if (!*mc_files) {
-            fprintf(stderr, RED "==> 内存分配失败\n" RESET);
-            FindClose(hFind);
-            return 0;
-        }
-        *mc_file_count = 0;
+    int capacity = 10;
+    *mc_files = malloc(sizeof(char *) * capacity);
+    if (!*mc_files) {
+        fprintf(stderr, RED "==> 内存分配失败\n" RESET);
+        FindClose(hFind);
+        return 0;
+    }
+    *mc_file_count = 0;
 
-        do {
-            if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
-                continue;
+    do {
+        if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
+            continue;
 
-            if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-                // 如果是目录，则递归查找子目录
-                char subdir[BUFFER_SIZE];
-                snprintf(subdir, sizeof(subdir), "%s%c%s", dir, PATH_SEPARATOR, find_data.cFileName);
-                char **subdir_mc_files = NULL;
-                int subdir_mc_file_count = 0;
-                if (get_mc_files(subdir, &subdir_mc_files, &subdir_mc_file_count)) {
-                    for (int i = 0; i < subdir_mc_file_count; i++) {
-                        if (*mc_file_count >= capacity) {
-                            capacity *= 2;
-                            char **temp = realloc(*mc_files, sizeof(char *) * capacity);
-                            if (!temp) {
-                                fprintf(stderr, RED "==> 内存分配失败\n" RESET);
-                                FindClose(hFind);
-                                return 0;
-                            }
-                            *mc_files = temp;
-                        }
-                        (*mc_files)[*mc_file_count] = subdir_mc_files[i];
-                        (*mc_file_count)++;
-                    }
-                    free(subdir_mc_files);
-                }
-            } else {
-                // 如果是 .mc 文件，加入到文件列表中
-                if (strstr(find_data.cFileName, ".mc")) {
+        if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            // 如果是目录，则递归查找子目录
+            char subdir[BUFFER_SIZE];
+            snprintf(subdir, sizeof(subdir), "%s%c%s", dir, PATH_SEPARATOR, find_data.cFileName);
+            char **subdir_mc_files = NULL;
+            int subdir_mc_file_count = 0;
+            if (get_mc_files(subdir, &subdir_mc_files, &subdir_mc_file_count)) {
+                for (int i = 0; i < subdir_mc_file_count; i++) {
                     if (*mc_file_count >= capacity) {
                         capacity *= 2;
                         char **temp = realloc(*mc_files, sizeof(char *) * capacity);
@@ -279,16 +258,34 @@ int get_mc_files(const char *dir, char ***mc_files, int *mc_file_count) {
                         }
                         *mc_files = temp;
                     }
-                    char *file_name = strdup(find_data.cFileName);
-                    if (file_name) {
-                        (*mc_files)[*mc_file_count] = file_name;
-                        (*mc_file_count)++;
+                    (*mc_files)[*mc_file_count] = subdir_mc_files[i];
+                    (*mc_file_count)++;
+                }
+                free(subdir_mc_files);
+            }
+        } else {
+            // 如果是 .mc 文件，加入到文件列表中
+            if (strstr(find_data.cFileName, ".mc")) {
+                if (*mc_file_count >= capacity) {
+                    capacity *= 2;
+                    char **temp = realloc(*mc_files, sizeof(char *) * capacity);
+                    if (!temp) {
+                        fprintf(stderr, RED "==> 内存分配失败\n" RESET);
+                        FindClose(hFind);
+                        return 0;
                     }
+                    *mc_files = temp;
+                }
+                char *file_name = _strdup(find_data.cFileName);
+                if (file_name) {
+                    (*mc_files)[*mc_file_count] = file_name;
+                    (*mc_file_count)++;
                 }
             }
-        } while (FindNextFileA(hFind, &find_data) != 0);
+        }
+    } while (FindNextFileA(hFind, &find_data) != 0);
 
-        FindClose(hFind);
+    FindClose(hFind);
 #else
     DIR *d = opendir(dir);
     if (!d) {
@@ -364,40 +361,40 @@ int get_mc_files(const char *dir, char ***mc_files, int *mc_file_count) {
 int get_unique_subdirectory(const char *dir, char *subdir) {
     DEBUG_PRINT("递归查找目录 %s 下的 .mc 文件\n", dir);
 #ifdef _WIN32
-        WIN32_FIND_DATAA find_data;
-        HANDLE hFind = INVALID_HANDLE_VALUE;
-        char search_path[1024];
-        snprintf(search_path, sizeof(search_path), "%s%c*", dir, PATH_SEPARATOR);
+    WIN32_FIND_DATAA find_data;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+    char search_path[1024];
+    snprintf(search_path, sizeof(search_path), "%s%c*", dir, PATH_SEPARATOR);
 
-        hFind = FindFirstFileA(search_path, &find_data);
-        if (hFind == INVALID_HANDLE_VALUE) {
-            fprintf(stderr, RED "==> 无法打开目录: %s\n" RESET, dir);
-            return 0;
-        }
+    hFind = FindFirstFileA(search_path, &find_data);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        fprintf(stderr, RED "==> 无法打开目录: %s\n" RESET, dir);
+        return 0;
+    }
 
-        do {
-            if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
-                continue;
+    do {
+        if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
+            continue;
 
-            if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-                // 如果是目录，则递归查找
-                char subdir_path[BUFFER_SIZE];
-                snprintf(subdir_path, sizeof(subdir_path), "%s%c%s", dir, PATH_SEPARATOR, find_data.cFileName);
-                if (get_unique_subdirectory(subdir_path, subdir)) {
-                    FindClose(hFind);
-                    return 1; // 找到包含 .mc 文件的目录，返回
-                }
-            } else {
-                if (strstr(find_data.cFileName, ".mc")) {
-                    // 如果是 .mc 文件，返回当前目录
-                    snprintf(subdir, BUFFER_SIZE, "%s", dir);
-                    FindClose(hFind);
-                    return 1;
-                }
+        if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            // 如果是目录，则递归查找
+            char subdir_path[BUFFER_SIZE];
+            snprintf(subdir_path, sizeof(subdir_path), "%s%c%s", dir, PATH_SEPARATOR, find_data.cFileName);
+            if (get_unique_subdirectory(subdir_path, subdir)) {
+                FindClose(hFind);
+                return 1; // 找到包含 .mc 文件的目录，返回
             }
-        } while (FindNextFileA(hFind, &find_data) != 0);
+        } else {
+            if (strstr(find_data.cFileName, ".mc")) {
+                // 如果是 .mc 文件，返回当前目录
+                snprintf(subdir, BUFFER_SIZE, "%s", dir);
+                FindClose(hFind);
+                return 1;
+            }
+        }
+    } while (FindNextFileA(hFind, &find_data) != 0);
 
-        FindClose(hFind);
+    FindClose(hFind);
 #else
     DIR *d = opendir(dir);
     if (!d) {
@@ -442,7 +439,7 @@ char *choose_mc_file(char **mc_files, int mc_file_count) {
     }
 
     if (mc_file_count == 1) {
-        printf(GREEN "  => 只有一个 .mc 文件，自动选择: %s\n" RESET, mc_files[0]);
+        printf(BLUE " -> 只有一个 .mc 文件，自动选择: %s\n" RESET, mc_files[0]);
         return mc_files[0];
     }
 
@@ -478,10 +475,10 @@ char *choose_mc_file(char **mc_files, int mc_file_count) {
 // 删除指定路径下的单个文件
 int remove_file_custom(const char *filename) {
 #ifdef _WIN32
-        if (!REMOVE_FILE(filename)) {
-            fprintf(stderr, RED "==> Error deleting file: %s\n" RESET, filename);
-            return -1;
-        }
+    if (!REMOVE_FILE(filename)) {
+        fprintf(stderr, RED "==> Error deleting file: %s\n" RESET, filename);
+        return -1;
+    }
 #else
     if (REMOVE_FILE(filename) != 0) {
         perror("==> Error deleting file");
@@ -502,7 +499,7 @@ int delete_directory_custom(const char *dir_path) {
 
     // 删除空目录
 #ifdef _WIN32
-        if (!REMOVE_DIR(dir_path)) {
+    if (!REMOVE_DIR(dir_path)) {
 #else
     if (REMOVE_DIR(dir_path) != 0) {
 #endif
@@ -514,41 +511,41 @@ int delete_directory_custom(const char *dir_path) {
 
 int delete_directory_contents(const char *dir_path) {
 #ifdef _WIN32
-        WIN32_FIND_DATAA find_data;
-        HANDLE hFind = INVALID_HANDLE_VALUE;
-        char search_path[1024];
-        snprintf(search_path, sizeof(search_path), "%s%c*", dir_path, PATH_SEPARATOR);
+    WIN32_FIND_DATAA find_data;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+    char search_path[1024];
+    snprintf(search_path, sizeof(search_path), "%s%c*", dir_path, PATH_SEPARATOR);
 
-        hFind = FindFirstFileA(search_path, &find_data);
-        if (hFind == INVALID_HANDLE_VALUE) {
-            perror("FindFirstFileA");
-            return -1;
-        }
+    hFind = FindFirstFileA(search_path, &find_data);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        perror("FindFirstFileA");
+        return -1;
+    }
 
-        do {
-            if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
-                continue;
+    do {
+        if (strcmp(find_data.cFileName, ".") == 0 || strcmp(find_data.cFileName, "..") == 0)
+            continue;
 
-            char file_path[1024];
-            snprintf(file_path, sizeof(file_path), "%s%c%s", dir_path, PATH_SEPARATOR, find_data.cFileName);
+        char file_path[1024];
+        snprintf(file_path, sizeof(file_path), "%s%c%s", dir_path, PATH_SEPARATOR, find_data.cFileName);
 
-            if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-                // 如果是子目录，递归删除
-                if (delete_directory_custom(file_path) != 0) {
-                    FindClose(hFind);
-                    return -1;
-                }
-            } else {
-                // 删除文件
-                if (!REMOVE_FILE(file_path)) {
-                    fprintf(stderr, RED "==> Error deleting file: %s\n" RESET, file_path);
-                    FindClose(hFind);
-                    return -1;
-                }
+        if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            // 如果是子目录，递归删除
+            if (delete_directory_custom(file_path) != 0) {
+                FindClose(hFind);
+                return -1;
             }
-        } while (FindNextFileA(hFind, &find_data) != 0);
+        } else {
+            // 删除文件
+            if (!REMOVE_FILE(file_path)) {
+                fprintf(stderr, RED "==> Error deleting file: %s\n" RESET, file_path);
+                FindClose(hFind);
+                return -1;
+            }
+        }
+    } while (FindNextFileA(hFind, &find_data) != 0);
 
-        FindClose(hFind);
+    FindClose(hFind);
 #else
     DIR *d = opendir(dir_path);
     if (!d) {
@@ -641,7 +638,7 @@ double extract_last_offset(const cJSON *notes) {
 
     const double result = offset->valuedouble;
 
-    printf("  => Offset: %lf\n", result);
+    printf(BLUE "  -> Offset: %lf\n", result);
 
     return result; // 将 offset 除以 1000
 }
@@ -682,7 +679,7 @@ cJSON *create_bpm_list(const cJSON *time) {
         cJSON_AddItemToArray(bpm_list, bpm_entry);
     }
 
-    printf("  => BPM List解析完成.\n");
+    printf(BLUE "  -> BPM List解析完成.\n");
 
     return bpm_list;
 }
@@ -700,7 +697,7 @@ void create_chart_json(const double offset, cJSON *bpm_list, const char *output_
     cJSON_AddNumberToObject(chart, "musicLength", -1.0);
     cJSON_AddBoolToObject(chart, "loopPlayBack", 1);
     cJSON_AddItemToObject(chart, "bpmList", bpm_list);
-    printf(GREEN "  => 文件初始化完成.\n" RESET);
+    printf(BLUE " -> 文件初始化完成.\n" RESET);
 
     // 写入文件
     FILE *file = fopen(output_path, "w");
@@ -757,8 +754,8 @@ int main(const int argc, char *argv[]) {
     // 检查 output_path 是否是目录路径，如果是目录，则附加文件名 "Chart.json"
     if (output_path) {
 #ifdef _WIN32
-            DWORD attr = GetFileAttributesA(output_path);
-            if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY)) {
+        const DWORD attr = GetFileAttributesA(output_path);
+        if (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY)) {
 #else
         struct stat st;
         if (stat(output_path, &st) == 0 && S_ISDIR(st.st_mode)) {
