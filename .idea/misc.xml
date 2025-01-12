@@ -3,7 +3,12 @@
   <component name="CMakePythonSetting">
     <option name="pythonIntegrationState" value="YES" />
   </component>
-  <component name="CMakeWorkspace" PROJECT_DIR="$PROJECT_DIR$/lanotalium">
+  <component name="CMakeWorkspace" PROJECT_DIR="$PROJECT_DIR$/cylheim">
     <contentRoot DIR="$PROJECT_DIR$" />
+  </component>
+  <component name="CidrRootsConfiguration">
+    <sourceRoots>
+      <file path="$PROJECT_DIR$/includes" />
+    </sourceRoots>
   </component>
 </project>

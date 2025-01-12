@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="FoldableProjectSettings">
+    <option name="RULES">
+      <list>
+        <Rule>
+          <option name="name" value="cmake files" />
+          <option name="pattern" value="cmake-build*" />
+        </Rule>
+      </list>
+    </option>
+  </component>
+</project>

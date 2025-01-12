@@ -1,4 +1,3 @@
-#pragma once
 #include "create_bpmlist.h"
 
 // 用于获取最简分数的最大公约数
