@@ -3,8 +3,7 @@ set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 
 # 指定交叉编译工具的路径
-set(CMAKE_C_COMPILER arm-linux-gnueabihf-gcc)
-set(CMAKE_CXX_COMPILER arm-linux-gnueabihf-g++)
+set(CMAKE_C_COMPILER /usr/bin/arm-linux-gnueabihf-gcc)
 
 # 设置交叉编译时的相关路径
 set(CMAKE_FIND_ROOT_PATH arm-toolchain)

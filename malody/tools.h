@@ -1,5 +1,5 @@
 #pragma once
-#include "cross_platform.h"
+#include "../includes/cross_platform.h"
 // 获取目录下所有 .mc 文件，递归查找
 int get_unique_subdirectory(const char *dir, char *subdir);
 // 删除指定路径下的单个文件

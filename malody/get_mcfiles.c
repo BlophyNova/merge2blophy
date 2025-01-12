@@ -1,4 +1,5 @@
 #include "tools.h"
+
 int get_mc_files(const char *dir, char ***mc_files, int *mc_file_count) {
     DEBUG_PRINT("获取目录 %s 下所有 .mc 文件\n", dir);
 #ifdef _WIN32

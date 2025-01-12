@@ -1,4 +1,4 @@
-#include "cross_platform.h"
+#include "../includes/cross_platform.h"
 #include "convert.h"
 
 // 帮助信息
@@ -311,7 +311,6 @@ cJSON *create_bpm_list(const cJSON *time) {
     return bpm_list;
 }
 
-// 创建 "startBeats" 和 "endBeats" 结构的辅助函数
 cJSON *createBeatObject(const double startBPM, const double endBPM) {
     cJSON *beats = cJSON_CreateObject();
     cJSON_AddNumberToObject(beats, "integer", 0);
@@ -322,7 +321,6 @@ cJSON *createBeatObject(const double startBPM, const double endBPM) {
     return beats;
 }
 
-// 新的函数：添加 "boxes" 到 chart
 void add_boxes_to_chart(cJSON *chart) {
     // 创建 "boxes" 数组
     cJSON *boxes = cJSON_CreateArray();
@@ -399,7 +397,6 @@ void add_boxes_to_chart(cJSON *chart) {
     cJSON_AddItemToObject(chart, "boxes", boxes);
 }
 
-// 修改后的 create_chart_json 函数
 void create_chart_json(const double offset, cJSON *bpm_list, const char *output_path) {
     cJSON *chart = cJSON_CreateObject();
 
@@ -413,7 +410,6 @@ void create_chart_json(const double offset, cJSON *bpm_list, const char *output_
     cJSON_AddBoolToObject(chart, "loopPlayBack", 1);
     cJSON_AddItemToObject(chart, "bpmList", bpm_list);
 
-    // 调用新增的 add_boxes_to_chart 函数
     add_boxes_to_chart(chart);
 
     printf(BLUE " -> 文件初始化完成.\n" RESET);
