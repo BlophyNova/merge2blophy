@@ -13,4 +13,3 @@ cJSON *create_bpm_list(const cJSON *bpm);
 cJSON *createBeatObject(double startBPM, double endBPM);
 void add_boxes_to_chart(cJSON *chart);
 void create_chart_json(double offset, cJSON *bpm_list, const char *output_path);
-int main(int argc, char *argv[]);

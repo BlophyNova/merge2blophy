@@ -57,6 +57,7 @@ cJSON *create_bpm_list(const cJSON *bpm) {
         } else {
             double_to_fraction(beat->valuedouble, &a, &b, &c);
         }
+
         cJSON *bpm_entry = cJSON_CreateObject();
         cJSON_AddNumberToObject(bpm_entry, "integer", a);
         cJSON_AddNumberToObject(bpm_entry, "molecule", b);
@@ -67,7 +68,7 @@ cJSON *create_bpm_list(const cJSON *bpm) {
         cJSON_AddItemToArray(bpm_list, bpm_entry);
     }
 
-    printf(BLUE "  -> BPM List解析完成.\n");
+    printf(GREEN "==> BPM List解析完成.\n");
 
     return bpm_list;
 }
