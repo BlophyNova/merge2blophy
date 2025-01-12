@@ -1,3 +1,5 @@
+#include <errno.h>
+
 #include "../thirdparty/cJSON/cJSON.h"
 #include "../thirdparty/miniz/miniz.h"
 #include <stdio.h>
@@ -132,7 +134,7 @@ int create_directory_if_not_exists(const char *path) {
     return 1;
 }
 
-// 解压 .mcz 文件 using miniz
+// 解压 .mcz 文件
 int unzip_mcz(const char *mcz_path, const char *output_dir) {
     DEBUG_PRINT("解压 .mcz 文件: %s 到目录: %s\n", mcz_path, output_dir);
     char abs_output_dir[1024];
@@ -153,7 +155,7 @@ int unzip_mcz(const char *mcz_path, const char *output_dir) {
         return 0;
     }
 
-    int num_files = (int) mz_zip_reader_get_num_files(&zip_archive);
+    const int num_files = mz_zip_reader_get_num_files(&zip_archive);
     for (int i = 0; i < num_files; i++) {
         mz_zip_archive_file_stat file_stat;
         if (!mz_zip_reader_file_stat(&zip_archive, i, &file_stat)) {
@@ -684,6 +686,17 @@ cJSON *create_bpm_list(const cJSON *time) {
     return bpm_list;
 }
 
+// 创建 "startBeats" 和 "endBeats" 结构的辅助函数
+cJSON *createBeatObject(const double startBPM, const double endBPM) {
+    cJSON *beats = cJSON_CreateObject();
+    cJSON_AddNumberToObject(beats, "integer", 0);
+    cJSON_AddNumberToObject(beats, "molecule", 0);
+    cJSON_AddNumberToObject(beats, "denominator", 1);
+    cJSON_AddNumberToObject(beats, "currentBPM", startBPM);
+    cJSON_AddNumberToObject(beats, "ThisStartBPM", endBPM);
+    return beats;
+}
+
 // 创建 Chart.json 文件
 void create_chart_json(const double offset, cJSON *bpm_list, const char *output_path) {
     cJSON *chart = cJSON_CreateObject();
@@ -693,10 +706,83 @@ void create_chart_json(const double offset, cJSON *bpm_list, const char *output_
     cJSON_AddNumberToObject(chart, "verticalSubdivision", 16);
     cJSON_AddNumberToObject(chart, "eventVerticalSubdivision", 10);
     cJSON_AddNumberToObject(chart, "playSpeed", 1.0);
-    cJSON_AddNumberToObject(chart, "offset", offset);
+    cJSON_AddNumberToObject(chart, "offset", offset / 1000);
     cJSON_AddNumberToObject(chart, "musicLength", -1.0);
     cJSON_AddBoolToObject(chart, "loopPlayBack", 1);
     cJSON_AddItemToObject(chart, "bpmList", bpm_list);
+
+    // 创建 "boxes" 数组并添加您提供的结构
+    cJSON *boxes = cJSON_CreateArray();
+
+    cJSON *box = cJSON_CreateObject();
+    cJSON *boxEvents = cJSON_CreateObject();
+
+    // 添加 boxEvents 的各个子项
+    cJSON *speed = cJSON_CreateArray();
+    cJSON *moveX = cJSON_CreateArray();
+    cJSON *moveY = cJSON_CreateArray();
+    cJSON *rotate = cJSON_CreateArray();
+    cJSON *alpha = cJSON_CreateArray();
+    cJSON *scaleX = cJSON_CreateArray();
+    cJSON *scaleY = cJSON_CreateArray();
+    cJSON *centerX = cJSON_CreateArray();
+    cJSON *centerY = cJSON_CreateArray();
+    cJSON *lineAlpha = cJSON_CreateArray();
+
+    // 添加 "speed" 数组的示例项
+    cJSON *speedObject = cJSON_CreateObject();
+    cJSON_AddItemToObject(speedObject, "startBeats", createBeatObject(0.0, 0.0));
+    cJSON_AddItemToObject(speedObject, "endBeats", createBeatObject(1.0, 1.0));
+    cJSON_AddNumberToObject(speedObject, "startValue", 3.0);
+    cJSON_AddNumberToObject(speedObject, "endValue", 3.0);
+    cJSON_AddNumberToObject(speedObject, "curveIndex", 0);
+    cJSON_AddBoolToObject(speedObject, "IsSelected", 0);
+    cJSON_AddItemToArray(speed, speedObject);
+
+    // 其它数组（moveX、moveY、rotate 等）可以使用类似的方法添加数据
+    cJSON_AddItemToObject(boxEvents, "speed", speed);
+    cJSON_AddItemToObject(boxEvents, "moveX", moveX);
+    cJSON_AddItemToObject(boxEvents, "moveY", moveY);
+    cJSON_AddItemToObject(boxEvents, "rotate", rotate);
+    cJSON_AddItemToObject(boxEvents, "alpha", alpha);
+    cJSON_AddItemToObject(boxEvents, "scaleX", scaleX);
+    cJSON_AddItemToObject(boxEvents, "scaleY", scaleY);
+    cJSON_AddItemToObject(boxEvents, "centerX", centerX);
+    cJSON_AddItemToObject(boxEvents, "centerY", centerY);
+    cJSON_AddItemToObject(boxEvents, "lineAlpha", lineAlpha);
+
+    // 添加其它字段（LengthSpeed 等）
+    cJSON_AddNumberToObject(boxEvents, "LengthSpeed", 1);
+    cJSON_AddNumberToObject(boxEvents, "LengthMoveX", 1);
+    cJSON_AddNumberToObject(boxEvents, "LengthMoveY", 1);
+    cJSON_AddNumberToObject(boxEvents, "LengthRotate", 1);
+    cJSON_AddNumberToObject(boxEvents, "LengthAlpha", 1);
+    cJSON_AddNumberToObject(boxEvents, "LengthScaleX", 1);
+    cJSON_AddNumberToObject(boxEvents, "LengthScaleY", 1);
+    cJSON_AddNumberToObject(boxEvents, "LengthCenterX", 1);
+    cJSON_AddNumberToObject(boxEvents, "LengthCenterY", 1);
+    cJSON_AddNumberToObject(boxEvents, "LengthLineAlpha", 1);
+
+    cJSON_AddItemToObject(box, "boxEvents", boxEvents);
+
+    // 添加 "lines" 数组
+    cJSON *lines = cJSON_CreateArray();
+    for (int i = 0; i < 5; i++) {
+        cJSON *line = cJSON_CreateObject();
+        cJSON_AddItemToObject(line, "onlineNotes", cJSON_CreateArray());
+        cJSON_AddItemToObject(line, "onlineNotesLength", cJSON_CreateNumber(0));
+        cJSON_AddItemToObject(line, "offlineNotes", cJSON_CreateArray());
+        cJSON_AddItemToObject(line, "offlineNotesLength", cJSON_CreateNumber(0));
+        cJSON_AddItemToArray(lines, line);
+    }
+
+    cJSON_AddItemToObject(box, "lines", lines);
+
+    // 将 box 添加到 boxes 数组中
+    cJSON_AddItemToArray(boxes, box);
+
+    cJSON_AddItemToObject(chart, "boxes", boxes);
+
     printf(BLUE " -> 文件初始化完成.\n" RESET);
 
     // 写入文件
@@ -726,6 +812,7 @@ void create_chart_json(const double offset, cJSON *bpm_list, const char *output_
 
     printf(GREEN "==> 临时文件已删除\n" RESET);
 }
+
 
 int main(const int argc, char *argv[]) {
     enable_ansi_colors(); // Enable ANSI colors on Windows

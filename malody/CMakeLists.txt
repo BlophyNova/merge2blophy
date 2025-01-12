@@ -15,6 +15,10 @@ set(BUILD_SHARED_LIBS OFF)
 set(CJSON_OVERRIDE_BUILD_SHARED_LIBS OFF)
 set(BUILD_HEADER_ONLY OFF)
 
+if(ARM_BUILD)
+    message(STATUS "Cross-compiling for ARM architecture")
+    set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/arm-toolchain.cmake)
+endif()
 
 # 添加子模块
 add_subdirectory(../thirdparty/cJSON ${CMAKE_BINARY_DIR}/cJSON)
