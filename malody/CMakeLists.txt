@@ -7,25 +7,37 @@ project(mtbc VERSION 1.0 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
-if(WIN32)
+if (WIN32)
     add_definitions(-DWIN32)
-endif()
+endif ()
 
 set(BUILD_SHARED_LIBS OFF)
 set(CJSON_OVERRIDE_BUILD_SHARED_LIBS OFF)
 set(BUILD_HEADER_ONLY OFF)
 
-if(ARM_BUILD)
+if (ARM_BUILD)
     message(STATUS "Cross-compiling for ARM architecture")
     set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/arm-toolchain.cmake)
-endif()
+endif ()
 
 # 添加子模块
 add_subdirectory(../thirdparty/cJSON ${CMAKE_BINARY_DIR}/cJSON)
 add_subdirectory(../thirdparty/miniz ${CMAKE_BINARY_DIR}/miniz)
 
 # 添加可执行文件
-add_executable(mtbc convert.c)
+add_executable(mtbc
+        convert.h
+        cross_platform.h
+        convert.h
+        tools.h
+        convert.c
+        delete_functions.c
+        get_subdirectory.c
+        get_mcfiles.c)
+
+target_compile_definitions(mtbc PRIVATE
+        $<$<CONFIG:Debug>:DEBUG>
+)
 
 # 设置 include 目录
 target_include_directories(mtbc PRIVATE ../thirdparty/cJSON ../thirdparty/miniz)
