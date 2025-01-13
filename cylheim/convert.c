@@ -211,7 +211,7 @@ int main(const int argc, char *argv[]) {
     // 提取数据并生成 Chart.json
     const double offset = 0;
     cJSON *bpm_list = create_bpm_list(json);
-    printf(GREEN "==> Offset: %f\n" RESET, offset);
+    printf(GREEN "==> Offset: %f(SKIPPED)\n" RESET, offset);
 
     create_chart_json(offset, bpm_list, output_path);
 

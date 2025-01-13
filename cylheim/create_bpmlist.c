@@ -15,14 +15,21 @@ cJSON *create_bpm_list(const cJSON *entry) {
         }
 
         const cJSON *tempo = cJSON_GetArrayItem(tempo_entry, i);
+        const cJSON *tempo_value = cJSON_GetObjectItem(tempo, "value");
+        const int tempo_value_int = tempo_value->valueint;
 
         double timing, bpm;
 
-        calculate_real_time_and_bpm(cJSON_GetObjectItem(entry, "time_base")->valueint,
-                                    cJSON_GetObjectItem(tempo, "tempo")->valuedouble,
-                                    cJSON_GetObjectItem(tempo, "start_tick")->valueint, &timing, &bpm);
+        const cJSON *time_base_item = cJSON_GetObjectItem(entry, "time_base");
+        const int time_base = time_base_item->valueint;
+        const cJSON *tick_item = cJSON_GetObjectItem(tempo, "tick");
+        const int tick = tick_item->valueint;
+
+        calculate_real_time_and_bpm(time_base, tempo_value_int, tick, &timing, &bpm);
 
         int a, b, c;
+
+        printf("%lf %lf \n",timing, bpm);
 
         double_to_fraction(timing, &a, &b, &c);
 

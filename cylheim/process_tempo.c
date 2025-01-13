@@ -1,10 +1,14 @@
 #include "process_tempo.h"
 
+#include <stdio.h>
+
 void calculate_real_time_and_bpm(const int timeBase, const double tempo, const int tick, double *timing, double *bpm) {
     // 计算每个 Tick 的时间长度 (以微秒为单位)
+    printf("timeBase = %d, tick = %d tempo = %f\n", timeBase, tick, tempo);
     const double tick_duration_us = (tempo / timeBase) * tick;
     // 转换为毫秒
     const double tick_duration_ms = tick_duration_us / 1000.0;
+    printf("tick_duration_ms = %f\n", tick_duration_ms);
     *timing = tick_duration_ms;
     *bpm = 60000000 / tempo;
 }
